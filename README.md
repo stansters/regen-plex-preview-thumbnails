@@ -20,7 +20,7 @@ BIF_BASE = "..."
 SQLITE = "..."
 ```
 
-**`PLEX_URL`** — URL to your Plex server. If running the script on the server itself, `localhost:32400` is fine. If running it remotely, replace with the server's IP (e.g. `http://192.168.1.10:32400`).
+**`PLEX_URL`** — URL to your Plex server. Since the script has to be run on the server itself, `localhost:32400` is fine in most cases.
 
 **`PLEX_TOKEN`** — Your Plex authentication token. To find it: in Plex Web, open any item → ⋯ → Get Info → View XML. The token is in the URL as `X-Plex-Token=`.
 
