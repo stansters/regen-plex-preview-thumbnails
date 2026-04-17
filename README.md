@@ -1,6 +1,6 @@
 # regen-plex-preview-thumbnails
 
-Deletes and regenerates corrupted or missing video preview thumbnail BIF files for specific shows, seasons, or episodes in Plex — without having to reanalyze your entire library.
+Deletes and regenerates corrupted or missing video preview thumbnail BIF files for specific shows (optionally by season/episode) or movies in Plex — without having to reanalyze your entire library.
 
 ## Requirements
 
@@ -49,14 +49,17 @@ Common locations:
 ## Usage
 
 ```bash
-# Regenerate all seasons of a show
+# Show mode (default): regenerate all seasons/episodes of a show
 python3 vpt-regen.py <show name>
 
-# Specific seasons
+# Show mode: specific seasons
 python3 vpt-regen.py <show name> --season 1,2
 
-# Specific episodes in a season
+# Show mode: specific episodes in a season
 python3 vpt-regen.py <show name> --season 1 --episode 3,4,5
+
+# Movie mode
+python3 vpt-regen.py <movie name> --movie
 ```
 
 ### Examples
@@ -65,11 +68,12 @@ python3 vpt-regen.py <show name> --season 1 --episode 3,4,5
 python3 vpt-regen.py fargo
 python3 vpt-regen.py fargo --season 2
 python3 vpt-regen.py breaking bad --season 3 --episode 1,2
+python3 vpt-regen.py interstellar --movie
 ```
 
 ## What it does
 
-1. Searches your Plex library for the show
+1. Searches your Plex library for the show or movie
 2. Lists matching seasons/episodes and their BIF file paths
 3. Shows which BIF files exist and which are missing
 4. Asks for confirmation before doing anything
