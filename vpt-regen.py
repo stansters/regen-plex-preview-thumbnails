@@ -30,6 +30,20 @@ def search_show(name):
     print(f"Found: {show['title']} (ID: {show['ratingKey']})")
     return show
 
+def search_movie(name):
+    results = plex_get("/search", {"query": name}).get("Metadata", [])
+    movies = [x for x in results if x.get("type") == "movie"]
+    if not movies:
+        print(f"No movies found for: {name}")
+        sys.exit(1)
+    if len(movies) > 1:
+        print("Multiple movies found, using first match:")
+        for m in movies:
+            print(f"  {m['title']} (ID: {m['ratingKey']})")
+    movie = movies[0]
+    print(f"Found: {movie['title']} (ID: {movie['ratingKey']})")
+    return movie
+
 def get_seasons(show_id, season_filter=None):
     seasons = plex_get(f"/library/metadata/{show_id}/children").get("Metadata", [])
     if season_filter:
@@ -55,50 +69,63 @@ def delete_bif(bif):
     else:
         print(f"  Not found (skipping): {bif}")
 
-def analyze(episode_id):
+def analyze(metadata_id):
     requests.put(
-        f"{PLEX_URL}/library/metadata/{episode_id}/analyze",
+        f"{PLEX_URL}/library/metadata/{metadata_id}/analyze",
         params={"X-Plex-Token": PLEX_TOKEN}
     )
 
 def main():
-    parser = argparse.ArgumentParser(description="Regenerate Plex video preview thumbnails for a show")
-    parser.add_argument("show", nargs="+", help="Show name")
+    parser = argparse.ArgumentParser(description="Regenerate Plex video preview thumbnails for a show or movie")
+    parser.add_argument("title", nargs="+", help="Show or movie title")
+    parser.add_argument("--movie", action="store_true", help="Treat the title as a movie (default is show mode).")
     parser.add_argument("--season", help="Comma-separated season numbers (e.g. 1,2,3). Omit for all seasons.")
     parser.add_argument("--episode", help="Comma-separated episode numbers (e.g. 1,2,3). Requires --season.")
     args = parser.parse_args()
 
-    if args.episode and not args.season:
+    if args.movie and (args.season or args.episode):
+        print("--season and --episode cannot be used with --movie.")
+        sys.exit(1)
+
+    if not args.movie and args.episode and not args.season:
         print("--episode requires --season to be specified.")
         sys.exit(1)
 
-    show_name = " ".join(args.show)
+    title_name = " ".join(args.title)
     season_filter = [int(s) for s in args.season.split(",")] if args.season else None
     episode_filter = [int(e) for e in args.episode.split(",")] if args.episode else None
 
-    show = search_show(show_name)
-    seasons = get_seasons(show["ratingKey"], season_filter)
+    metadata_ids = []
+    analyze_target_label = "items"
 
-    if not seasons:
-        print("No matching seasons found.")
+    if args.movie:
+        movie = search_movie(title_name)
+        metadata_ids = [int(movie["ratingKey"])]
+        analyze_target_label = "movies"
+    else:
+        show = search_show(title_name)
+        seasons = get_seasons(show["ratingKey"], season_filter)
+
+        if not seasons:
+            print("No matching seasons found.")
+            sys.exit(1)
+
+        for season in seasons:
+            print(f"\nSeason {season.get('index', '?')}: {season['title']} (ID: {season['ratingKey']})")
+            episodes = plex_get(f"/library/metadata/{season['ratingKey']}/children").get("Metadata", [])
+            if episode_filter:
+                episodes = [e for e in episodes if e.get("index") in episode_filter]
+            for e in episodes:
+                print(f"  E{e.get('index', '?')}: {e['title']} (ID: {e['ratingKey']})")
+            metadata_ids.extend([int(e["ratingKey"]) for e in episodes])
+        analyze_target_label = "episodes"
+
+    if not metadata_ids:
+        print("No matching media found.")
         sys.exit(1)
 
-    all_episode_ids = []
-    for season in seasons:
-        print(f"\nSeason {season.get('index', '?')}: {season['title']} (ID: {season['ratingKey']})")
-        episodes = plex_get(f"/library/metadata/{season['ratingKey']}/children").get("Metadata", [])
-        if episode_filter:
-            episodes = [e for e in episodes if e.get("index") in episode_filter]
-        for e in episodes:
-            print(f"  E{e.get('index', '?')}: {e['title']} (ID: {e['ratingKey']})")
-        all_episode_ids.extend([e["ratingKey"] for e in episodes])
-
-    if not all_episode_ids:
-        print("No episodes found.")
-        sys.exit(1)
-
-    id_list = ",".join(all_episode_ids)
-    print(f"\nLooking up BIF files for {len(all_episode_ids)} episodes...")
+    id_list = ",".join(str(mid) for mid in metadata_ids)
+    print(f"\nLooking up BIF files for {len(metadata_ids)} {analyze_target_label}...")
     rows = sqlite_query(
         f"SELECT hash FROM media_parts WHERE media_item_id IN "
         f"(SELECT id FROM media_items WHERE metadata_item_id IN ({id_list}))"
@@ -117,7 +144,7 @@ def main():
             print(f"  [MISSING] {bif}")
 
     print(f"\n{len(found)}/{len(bif_paths)} BIF files found.")
-    confirm = input(f"Delete and requeue analysis for {len(all_episode_ids)} episodes? [y/N] ").strip().lower()
+    confirm = input(f"Delete and requeue analysis for {len(metadata_ids)} {analyze_target_label}? [y/N] ").strip().lower()
     if confirm != "y":
         print("Aborted.")
         sys.exit(0)
@@ -127,9 +154,9 @@ def main():
         delete_bif(bif)
 
     print(f"\nQueuing reanalysis...")
-    for ep_id in all_episode_ids:
-        analyze(ep_id)
-        print(f"  Queued: {ep_id}")
+    for metadata_id in metadata_ids:
+        analyze(metadata_id)
+        print(f"  Queued: {metadata_id}")
 
     print("\nDone. Plex will regenerate thumbnails during the next analysis pass.")
 
