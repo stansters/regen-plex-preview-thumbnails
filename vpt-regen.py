@@ -100,7 +100,7 @@ def main():
 
     if args.movie:
         movie = search_movie(title_name)
-        metadata_ids = [movie["ratingKey"]]
+        metadata_ids = [int(movie["ratingKey"])]
         analyze_target_label = "movies"
     else:
         show = search_show(title_name)
@@ -117,7 +117,7 @@ def main():
                 episodes = [e for e in episodes if e.get("index") in episode_filter]
             for e in episodes:
                 print(f"  E{e.get('index', '?')}: {e['title']} (ID: {e['ratingKey']})")
-            metadata_ids.extend([e["ratingKey"] for e in episodes])
+            metadata_ids.extend([int(e["ratingKey"]) for e in episodes])
         analyze_target_label = "episodes"
 
     if not metadata_ids:
