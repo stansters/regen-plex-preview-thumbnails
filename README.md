@@ -74,7 +74,7 @@ python3 vpt-regen.py interstellar --movie
 ## What it does
 
 1. Searches your Plex library for the show or movie
-2. Lists matching seasons/episodes and their BIF file paths
+2. Lists matching content and its BIF file paths
 3. Shows which BIF files exist and which are missing
 4. Asks for confirmation before doing anything
 5. Deletes the BIF files and queues reanalysis via the Plex API

@@ -124,7 +124,7 @@ def main():
         print("No matching media found.")
         sys.exit(1)
 
-    id_list = ",".join(str(metadata_id) for metadata_id in metadata_ids)
+    id_list = ",".join(str(mid) for mid in metadata_ids)
     print(f"\nLooking up BIF files for {len(metadata_ids)} {analyze_target_label}...")
     rows = sqlite_query(
         f"SELECT hash FROM media_parts WHERE media_item_id IN "
